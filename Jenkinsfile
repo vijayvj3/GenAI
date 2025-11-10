@@ -3,8 +3,8 @@ pipeline {
     stages {
         stage('Build') {
             steps {
-                echo 'Building...'
-            }
+                echo 'Test Building...'
+            ii:}
         }
         stage('Test') {
             steps {
@@ -18,6 +18,3 @@ pipeline {
         }
     }
 }
-
-
-
