@@ -1,0 +1,45 @@
+---
+- name: Install Docker engine
+  hosts: all
+  become: true
+  vars:
+    docker_apt_packages:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg-agent
+      - software-properties-common
+  tasks:
+    - name: Install prerequisites
+      apt:
+        name: "{{ docker_apt_packages }}"
+        update_cache: yes
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker APT repository
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Install docker-ce
+      apt:
+        name: ['docker-ce', 'docker-ce-cli', 'containerd.io']
+        update_cache: yes
+        state: latest
+
+    - name: Ensure docker is started and enabled
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Add ubuntu user to docker group (optional)
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
