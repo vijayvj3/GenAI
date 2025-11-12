@@ -3,8 +3,8 @@ pipeline {
 
     environment {
         APP_REPO = "https://github.com/vijayvj3/projCert.git"   // your PHP app repo
-        TEST_NODE = "test"
-        PROD_NODE = "prod"
+        TEST_NODE = "test-server"
+        PROD_NODE = "Prod Server"
         ANSIBLE_PLAYBOOK = "install_docker.yml"
         DOCKER_IMAGE = "projcert-app:latest"
     }
