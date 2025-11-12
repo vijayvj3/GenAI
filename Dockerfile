@@ -15,4 +15,4 @@ RUN chown -R www-data:www-data /var/www/html
 EXPOSE 80
 
 # If base image already defines CMD/ENTRYPOINT, no need to redefine
-# Otherwise provide a command to run apache/
+# Otherwise provide a command to run apache/fnf
