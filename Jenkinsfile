@@ -24,11 +24,11 @@ pipeline {
             steps {
                 echo "Installing Docker using Ansible on Test Server..."
                 sh """
-                    ansible-playbook ${ANSIBLE_PLAYBOOK} -i '${env.TEST_NODE},' \
-                    --user ubuntu --private-key /var/lib/jenkins/.ssh/id_rsa_pipeline
+                cd ansible
+                ansible-playbook install_docker.yml -i inventory --limit test
                 """
-            }
-        }
+    }
+}
 
         stage('Build Docker Image') {
             agent { label "${TEST_NODE}" }
