@@ -13,10 +13,16 @@ pipeline {
         stage('Checkout Application Code') {
             agent { label "${TEST_NODE}" }
             steps {
-                echo "Cloning PHP app..."
-                git branch: 'master', url: "${APP_REPO}"
-            }
+            echo "Cloning PHP app repository..."
+            sh """
+                rm -rf app || true
+            """
+            dir('app') {
+            git branch: 'master', url: "${APP_REPO}"
         }
+    }
+}
+
 
         stage('Install Docker via Ansible (Test Server)') {
             agent { label "${TEST_NODE}" }
