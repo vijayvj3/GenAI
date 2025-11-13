@@ -33,9 +33,13 @@ pipeline {
             agent { label "${TEST_NODE}" }
             steps {
                 echo "Building Docker image for PHP app..."
-                sh "docker build -t ${DOCKER_IMAGE} ."
+                sh """
+                    cd projCert   # go inside the application folder
+                    docker build -t ${DOCKER_IMAGE} .
+                """
     }
 }
+
 
 
         stage('Deploy to Test Server') {
