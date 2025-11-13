@@ -5,7 +5,7 @@ pipeline {
         APP_REPO = "https://github.com/vijayvj3/projCert.git"
         TEST_NODE = "test-server"
         PROD_NODE = "prod-server"
-        PROD_IP = "YOUR_PROD_PRIVATE_IP"        // <---- CHANGE THIS
+        PROD_IP = "172.31.37.245"        // <---- CHANGE THIS
         DOCKER_IMAGE = "projcert-app:latest"
     }
 
