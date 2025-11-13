@@ -2,62 +2,57 @@ pipeline {
     agent none
 
     environment {
-        APP_REPO = "https://github.com/vijayvj3/projCert.git"   // your PHP app repo
+        APP_REPO = "https://github.com/vijayvj3/projCert.git"
         TEST_NODE = "test-server"
-        PROD_NODE = "Prod Server"
-        ANSIBLE_PLAYBOOK = "ansible/install_docker.yml"
+        PROD_NODE = "Prod-Server"
         DOCKER_IMAGE = "projcert-app:latest"
     }
 
     stages {
 
+        stage('Checkout Application Code') {
+            agent { label "${TEST_NODE}" }
+            steps {
+                echo "Cloning PHP app..."
+                git branch: 'master', url: "${APP_REPO}"
+            }
+        }
+
+        stage('Install Docker via Ansible (Test Server)') {
+            agent { label "${TEST_NODE}" }
+            steps {
+                echo "Installing Docker on TEST..."
+                sh """
+                    cd ansible
+                    ansible-playbook install_docker.yml -i inventory --limit test
+                """
+            }
+        }
+
         stage('Build Docker Image') {
             agent { label "${TEST_NODE}" }
             steps {
                 echo "Building Docker image for PHP app..."
-                sh """
-                cd projCert   # go inside the application folder
-                docker build -t ${DOCKER_IMAGE} .
-                """
+                sh "docker build -t ${DOCKER_IMAGE} ."
     }
 }
 
 
-        stage('Install Docker via Ansible (on Test)') {
+        stage('Deploy to Test Server') {
             agent { label "${TEST_NODE}" }
             steps {
-                echo "Installing Docker using Ansible on Test Server..."
+                echo "Deploying container on TEST..."
                 sh """
-                cd ansible
-                ansible-playbook install_docker.yml -i inventory --limit test
+                    docker rm -f projcert-app || true
+                    docker run -d -p 80:80 --name projcert-app ${DOCKER_IMAGE}
                 """
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Smoke Test on Test Server') {
             agent { label "${TEST_NODE}" }
             steps {
-                echo "Building Docker image for PHP app..."
-                sh 'docker build -t ${DOCKER_IMAGE} .'
-            }
-        }
-
-        stage('Deploy to Test Server') {
-            agent { label "${TEST_NODE}" }
-            steps {
-                echo "Deploying container on Test Server..."
-                sh '''
-                docker rm -f projcert-app || true
-                docker run -d -p 80:80 --name projcert-app projcert-app:latest
-                '''
-            }
-        }
-
-        stage('Test Application') {
-            agent { label "${TEST_NODE}" }
-            steps {
-                echo "Running smoke tests on Test Server..."
-                // Add your test commands (curl or PHP test scripts)
+                echo "Testing TEST server..."
                 sh 'curl -I http://localhost || true'
             }
         }
@@ -68,21 +63,21 @@ pipeline {
             }
             agent { label "${PROD_NODE}" }
             steps {
-                echo "Deploying to Production Server..."
-                sh '''
-                docker rm -f projcert-app || true
-                docker run -d -p 80:80 --name projcert-app projcert-app:latest
-                '''
+                echo "Deploying container on PROD..."
+                sh """
+                    docker rm -f projcert-app || true
+                    docker run -d -p 80:80 --name projcert-app ${DOCKER_IMAGE}
+                """
             }
         }
     }
 
     post {
         success {
-            echo "✅ Deployment to production successful!"
+            echo "🚀 Deployment successful on PROD"
         }
         failure {
-            echo "❌ Pipeline failed. Cleaning up test container..."
+            echo "❌ FAILED — cleaning up TEST..."
             node("${TEST_NODE}") {
                 sh 'docker rm -f projcert-app || true'
             }
