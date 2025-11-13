@@ -5,16 +5,16 @@ pipeline {
         APP_REPO = "https://github.com/vijayvj3/projCert.git"
         TEST_NODE = "test-server"
         PROD_NODE = "prod-server"
-        PROD_IP = "15.207.72.246"        // <---- CHANGE THIS
+        PROD_IP = "15.207.72.246"    // <--- Your PROD public IP
         DOCKER_IMAGE = "projcert-app:latest"
     }
 
     stages {
 
-        stage('Checkout App') {
+        stage('Checkout App Code') {
             agent { label "${TEST_NODE}" }
             steps {
-                echo "Cloning PHP app repo"
+                echo "Cloning application repo..."
                 sh """
                     rm -rf projCert || true
                     git clone ${APP_REPO} projCert
@@ -25,6 +25,7 @@ pipeline {
         stage('Install Docker on Test (Ansible)') {
             agent { label "${TEST_NODE}" }
             steps {
+                echo "Running Ansible on Test..."
                 sh """
                     cd ansible
                     ansible-playbook install_docker.yml -i inventory --limit test
@@ -33,23 +34,22 @@ pipeline {
         }
 
         stage('Build Docker Image on Test') {
-    agent { label "${TEST_NODE}" }
-    steps {
-        echo "Building Docker image"
-        sh """
-            rm -f projCert/Dockerfile || true
-            cd projCert
-            cp ../Dockerfile .
-            docker build -t projcert-app:latest .
-        """
-    }
-}
-
-
-        stage('Deploy to Test') {
             agent { label "${TEST_NODE}" }
             steps {
-                echo "Running container on Test server"
+                echo "Building Docker image..."
+                sh """
+                    rm -f projCert/Dockerfile || true
+                    cp Dockerfile projCert/
+                    cd projCert
+                    docker build -t ${DOCKER_IMAGE} .
+                """
+            }
+        }
+
+        stage('Deploy to Test Server') {
+            agent { label "${TEST_NODE}" }
+            steps {
+                echo "Starting container on Test server..."
                 sh """
                     docker rm -f projcert-app || true
                     docker run -d -p 80:80 --name projcert-app ${DOCKER_IMAGE}
@@ -57,29 +57,27 @@ pipeline {
             }
         }
 
-        stage('Promote Image TEST → PROD') {
+        stage('Promote Image From Test → PROD') {
             agent { label "${TEST_NODE}" }
             steps {
-                echo "Saving Docker image on TEST"
-                sh """
-                    docker save ${DOCKER_IMAGE} -o projcert-app.tar
-                    withCredentials([sshUserPrivateKey(credentialsId: 'prod-ssh-key', keyFileVariable: 'SSH_KEY')]) {
-                        sh """
+                echo "Saving Docker image and copying to PROD..."
+
+                // USE JENKINS CREDENTIALS
+                withCredentials([sshUserPrivateKey(credentialsId: 'prod-ssh-key', 
+                         keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                    sh """
                         docker save ${DOCKER_IMAGE} -o projcert-app.tar
-                        scp -o StrictHostKeyChecking=no -i $SSH_KEY projcert-app.tar ubuntu@${PROD_IP}:/tmp/
+                        scp -o StrictHostKeyChecking=no -i $SSH_KEY projcert-app.tar ${SSH_USER}@${PROD_IP}:/tmp/
                     """
-            }
-
-
-
-                """
+                }
             }
         }
 
-        stage('Deploy on PROD') {
+        stage('Deploy on Production Server') {
             agent { label "${PROD_NODE}" }
             steps {
-                echo "Deploying container on PROD..."
+                echo "Deploying on PROD..."
+
                 sh """
                     docker load -i /tmp/projcert-app.tar
                     docker rm -f projcert-app || true
@@ -90,14 +88,14 @@ pipeline {
     }
 
     post {
+        success {
+            echo "🎉 Deployment completed successfully!"
+        }
         failure {
-            echo "Pipeline failed — removing container on TEST server"
+            echo "❌ Failure occurred. Cleaning up TEST environment..."
             node("${TEST_NODE}") {
                 sh "docker rm -f projcert-app || true"
             }
-        }
-        success {
-            echo "Deployment to PROD successful!"
         }
     }
 }
