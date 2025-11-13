@@ -63,7 +63,13 @@ pipeline {
                 echo "Saving Docker image on TEST"
                 sh """
                     docker save ${DOCKER_IMAGE} -o projcert-app.tar
-                    scp -o StrictHostKeyChecking=no -i /home/ubuntu/.ssh/id_rsa_pipeline projcert-app.tar ubuntu@${PROD_IP}:/tmp/
+                    withCredentials([sshUserPrivateKey(credentialsId: 'prod-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                        sh """
+                        docker save ${DOCKER_IMAGE} -o projcert-app.tar
+                        scp -o StrictHostKeyChecking=no -i $SSH_KEY projcert-app.tar ubuntu@${PROD_IP}:/tmp/
+                    """
+            }
+
 
 
                 """
