@@ -3,8 +3,8 @@ pipeline {
 
     environment {
         APP_REPO = "https://github.com/vijayvj3/projCert.git"
-        TEST_NODE = "test-server"
-        PROD_NODE = "Prod-Server"
+        TEST_NODE = "test"
+        PROD_NODE = "prod"
         DOCKER_IMAGE = "projcert-app:latest"
     }
 
@@ -13,20 +13,17 @@ pipeline {
         stage('Checkout Application Code') {
             agent { label "${TEST_NODE}" }
             steps {
-            echo "Cloning PHP app repository..."
-
-            dir('projCert') {
-            git branch: 'master', url: "${APP_REPO}"
+                echo "Cloning PHP app into projCert folder..."
+                dir('projCert') {
+                    git branch: 'master', url: "${APP_REPO}"
+                }
+            }
         }
-    }
-}
-
-
 
         stage('Install Docker via Ansible (Test Server)') {
             agent { label "${TEST_NODE}" }
             steps {
-                echo "Installing Docker on TEST..."
+                echo "Installing Docker on TEST via Ansible..."
                 sh """
                     cd ansible
                     ansible-playbook install_docker.yml -i inventory --limit test
@@ -35,23 +32,20 @@ pipeline {
         }
 
         stage('Build Docker Image') {
-    agent { label "${TEST_NODE}" }
-    steps {
-        echo "Building Docker image..."
-        sh """
-            cd projCert
-            docker build -t ${DOCKER_IMAGE} .
-        """
-    }
-}
-
-
-
+            agent { label "${TEST_NODE}" }
+            steps {
+                echo "Building Docker image from projCert folder..."
+                sh """
+                    cd projCert
+                    docker build -t ${DOCKER_IMAGE} .
+                """
+            }
+        }
 
         stage('Deploy to Test Server') {
             agent { label "${TEST_NODE}" }
             steps {
-                echo "Deploying container on TEST..."
+                echo "Deploying application on TEST server..."
                 sh """
                     docker rm -f projcert-app || true
                     docker run -d -p 80:80 --name projcert-app ${DOCKER_IMAGE}
@@ -62,18 +56,18 @@ pipeline {
         stage('Smoke Test on Test Server') {
             agent { label "${TEST_NODE}" }
             steps {
-                echo "Testing TEST server..."
-                sh 'curl -I http://localhost || true'
+                echo "Running smoke tests on TEST..."
+                sh "curl -I http://localhost || true"
             }
         }
 
-        stage('Deploy to Production') {
+        stage('Deploy to Production Server') {
             when {
                 expression { currentBuild.currentResult == 'SUCCESS' }
             }
             agent { label "${PROD_NODE}" }
             steps {
-                echo "Deploying container on PROD..."
+                echo "Deploying application to PROD server..."
                 sh """
                     docker rm -f projcert-app || true
                     docker run -d -p 80:80 --name projcert-app ${DOCKER_IMAGE}
@@ -84,12 +78,12 @@ pipeline {
 
     post {
         success {
-            echo "🚀 Deployment successful on PROD"
+            echo "🎉 Production deployment successful!"
         }
         failure {
-            echo "❌ FAILED — cleaning up TEST..."
+            echo "❌ Pipeline failed — cleaning up TEST environment..."
             node("${TEST_NODE}") {
-                sh 'docker rm -f projcert-app || true'
+                sh "docker rm -f projcert-app || true"
             }
         }
     }
