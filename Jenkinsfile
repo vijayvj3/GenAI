@@ -63,7 +63,7 @@ pipeline {
                 echo "Saving Docker image on TEST"
                 sh """
                     docker save ${DOCKER_IMAGE} -o projcert-app.tar
-                    scp -o StrictHostKeyChecking=no -i /var/lib/jenkins/.ssh/id_rsa_pipeline projcert-app.tar ubuntu@${PROD_IP}:/tmp/
+                    scp -o StrictHostKeyChecking=no -i /home/ubuntu/.ssh/id_rsa_pipeline projcert-app.tar ubuntu@${PROD_IP}:/tmp/
                 """
             }
         }
