@@ -11,13 +11,17 @@ pipeline {
 
     stages {
 
-        stage('Checkout Application Code') {
+        stage('Build Docker Image') {
             agent { label "${TEST_NODE}" }
             steps {
-                echo "Cloning PHP app repository..."
-                git branch: 'master', url: "${APP_REPO}"
-            }
-        }
+                echo "Building Docker image for PHP app..."
+                sh """
+                cd projCert   # go inside the application folder
+                docker build -t ${DOCKER_IMAGE} .
+                """
+    }
+}
+
 
         stage('Install Docker via Ansible (on Test)') {
             agent { label "${TEST_NODE}" }
@@ -27,8 +31,8 @@ pipeline {
                 cd ansible
                 ansible-playbook install_docker.yml -i inventory --limit test
                 """
-    }
-}
+            }
+        }
 
         stage('Build Docker Image') {
             agent { label "${TEST_NODE}" }
