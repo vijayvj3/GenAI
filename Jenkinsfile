@@ -33,15 +33,18 @@ pipeline {
         }
 
         stage('Build Docker Image on Test') {
-            agent { label "${TEST_NODE}" }
-            steps {
-                echo "Building Docker image"
-                sh """
-                    cd projCert
-                    docker build -t ${DOCKER_IMAGE} .
-                """
-            }
-        }
+    agent { label "${TEST_NODE}" }
+    steps {
+        echo "Building Docker image"
+        sh """
+            rm -f projCert/Dockerfile || true
+            cd projCert
+            cp ../Dockerfile .
+            docker build -t projcert-app:latest .
+        """
+    }
+}
+
 
         stage('Deploy to Test') {
             agent { label "${TEST_NODE}" }
