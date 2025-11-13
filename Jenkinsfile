@@ -4,26 +4,27 @@ pipeline {
     environment {
         APP_REPO = "https://github.com/vijayvj3/projCert.git"
         TEST_NODE = "test-server"
-        PROD_NODE = "Prod Server"
+        PROD_NODE = "prod-server"
+        PROD_IP = "YOUR_PROD_PRIVATE_IP"        // <---- CHANGE THIS
         DOCKER_IMAGE = "projcert-app:latest"
     }
 
     stages {
 
-        stage('Checkout Application Code') {
+        stage('Checkout App') {
             agent { label "${TEST_NODE}" }
             steps {
-                echo "Cloning PHP app into projCert folder..."
-                dir('projCert') {
-                    git branch: 'master', url: "${APP_REPO}"
-                }
+                echo "Cloning PHP app repo"
+                sh """
+                    rm -rf projCert || true
+                    git clone ${APP_REPO} projCert
+                """
             }
         }
 
-        stage('Install Docker via Ansible (Test Server)') {
+        stage('Install Docker on Test (Ansible)') {
             agent { label "${TEST_NODE}" }
             steps {
-                echo "Installing Docker on TEST via Ansible..."
                 sh """
                     cd ansible
                     ansible-playbook install_docker.yml -i inventory --limit test
@@ -31,24 +32,21 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
-    agent { label "${TEST_NODE}" }
-    steps {
-        echo "Building Docker image for PHP app..."
-
-        sh """
-            cp Dockerfile projCert/
-            cd projCert
-            docker build -t ${DOCKER_IMAGE} .
-        """
-    }
-}
-
-
-        stage('Deploy to Test Server') {
+        stage('Build Docker Image on Test') {
             agent { label "${TEST_NODE}" }
             steps {
-                echo "Deploying application on TEST server..."
+                echo "Building Docker image"
+                sh """
+                    cd projCert
+                    docker build -t ${DOCKER_IMAGE} .
+                """
+            }
+        }
+
+        stage('Deploy to Test') {
+            agent { label "${TEST_NODE}" }
+            steps {
+                echo "Running container on Test server"
                 sh """
                     docker rm -f projcert-app || true
                     docker run -d -p 80:80 --name projcert-app ${DOCKER_IMAGE}
@@ -56,38 +54,39 @@ pipeline {
             }
         }
 
-        stage('Smoke Test on Test Server') {
+        stage('Promote Image TEST → PROD') {
             agent { label "${TEST_NODE}" }
             steps {
-                echo "Running smoke tests on TEST..."
-                sh "curl -I http://localhost || true"
+                echo "Saving Docker image on TEST"
+                sh """
+                    docker save ${DOCKER_IMAGE} -o projcert-app.tar
+                    scp -o StrictHostKeyChecking=no -i /var/lib/jenkins/.ssh/id_rsa_pipeline projcert-app.tar ubuntu@${PROD_IP}:/tmp/
+                """
             }
         }
 
-        stage('Deploy to Production Server') {
-            when {
-                expression { currentBuild.currentResult == 'SUCCESS' }
-            }
+        stage('Deploy on PROD') {
             agent { label "${PROD_NODE}" }
             steps {
-                echo "Deploying application to PROD server..."
+                echo "Deploying container on PROD..."
                 sh """
+                    docker load -i /tmp/projcert-app.tar
                     docker rm -f projcert-app || true
-                    docker run -d -p 80:80 --name projcert-app ${DOCKER_IMAGE}
+                    docker run -d -p 80:80 --name projcert-app projcert-app:latest
                 """
             }
         }
     }
 
     post {
-        success {
-            echo "🎉 Production deployment successful!"
-        }
         failure {
-            echo "❌ Pipeline failed — cleaning up TEST environment..."
+            echo "Pipeline failed — removing container on TEST server"
             node("${TEST_NODE}") {
                 sh "docker rm -f projcert-app || true"
             }
+        }
+        success {
+            echo "Deployment to PROD successful!"
         }
     }
 }
