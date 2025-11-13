@@ -4,7 +4,7 @@ pipeline {
     environment {
         APP_REPO = "https://github.com/vijayvj3/projCert.git"
         TEST_NODE = "test-server"
-        PROD_NODE = "prod-server"
+        PROD_NODE = "Prod-Server"
         PROD_IP = "15.207.72.246"
         DOCKER_IMAGE = "projcert-app:latest"
     }
