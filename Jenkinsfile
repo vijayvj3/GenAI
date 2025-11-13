@@ -14,14 +14,13 @@ pipeline {
             agent { label "${TEST_NODE}" }
             steps {
             echo "Cloning PHP app repository..."
-            sh """
-                rm -rf app || true
-            """
-            dir('app') {
+
+            dir('projCert') {
             git branch: 'master', url: "${APP_REPO}"
         }
     }
 }
+
 
 
         stage('Install Docker via Ansible (Test Server)') {
@@ -36,15 +35,16 @@ pipeline {
         }
 
         stage('Build Docker Image') {
-            agent { label "${TEST_NODE}" }
-            steps {
-                echo "Building Docker image for PHP app..."
-                sh """
-                    cd projCert   # go inside the application folder
-                    docker build -t ${DOCKER_IMAGE} .
-                """
+    agent { label "${TEST_NODE}" }
+    steps {
+        echo "Building Docker image..."
+        sh """
+            cd projCert
+            docker build -t ${DOCKER_IMAGE} .
+        """
     }
 }
+
 
 
 
